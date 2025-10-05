@@ -38,8 +38,64 @@ router.get('/', (req, res) => {
   `;
 
   pool.query(sql, params, (err, rows) => {
-    if (err) return res.status(500).send({ error: 'query failed' });
+    if (err) {
+      return res.status(500).send({ error: 'query failed' });
+    }
     res.send(rows);
+  });
+});
+
+router.get('/:id', (req, res) => {
+  const id = Number(req.params.id);
+
+  const sqlEvent = `
+    SELECT 
+      e.*, 
+      c.name AS category_name, 
+      o.name AS organisation_name, o.mission_text, o.contact_email, o.contact_phone, o.website_url
+    FROM events e
+    JOIN categories c ON e.category_id = c.id
+    JOIN organisations o ON e.organisation_id = o.id
+    WHERE e.id = ?
+    LIMIT 1
+  `;
+
+  const sqlRegStats = `
+    SELECT 
+      COUNT(*) AS reg_count,
+      COALESCE(SUM(r.quantity), 0) AS total_qty,
+      COALESCE(SUM(r.amount), 0.00) AS total_amount
+    FROM registrations r
+    WHERE r.event_id = ?
+      AND r.status <> 'cancelled'
+  `;
+
+  pool.query(sqlEvent, [id], (err, rows) => {
+    if (err) {
+      return res.status(500).send({ error: 'query failed' });
+    }
+    if (!rows || rows.length === 0) {
+      return res.status(404).send({ error: 'not found' });
+    }
+
+    const event = rows[0];
+
+    pool.query(sqlRegStats, [id], (err2, statsRows) => {
+      if (err2) {
+        return res.status(500).send({ error: 'stats query failed' });
+      }
+      const stats = statsRows && statsRows[0] ? statsRows[0] : { reg_count: 0, total_qty: 0, total_amount: 0.0 };
+
+      res.send({
+        ...event,
+        registration_stats: stats,
+        progress: {
+          goal_amount: Number(event.goal_amount || 0),
+          raised_amount: Number(stats.total_amount || 0),
+          percent: Math.min(100, Math.round((Number(stats.total_amount || 0) / event.goal_amount) * 100))
+        }
+      });
+    });
   });
 });
 
