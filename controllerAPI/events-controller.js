@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../event_db');
 
-// tool：concat where clause
+// tool: concat where clause
 function buildWhere({ upcomingOnly = true, notSuspended = true }) {
   const where = [];
   const params = [];
@@ -96,6 +96,51 @@ router.get('/:id', (req, res) => {
         }
       });
     });
+  });
+});
+
+router.post('/search', (req, res) => {
+  const { date, location, category_id } = req.body;
+
+  const where = ['e.is_suspended = 0'];
+  const params = [];
+
+  if (date) {
+    where.push('(e.start_datetime <= ? AND e.end_datetime >= ?)');
+    params.push(`${date} 23:59:59`, `${date} 00:00:00`);
+  } else {
+    where.push('e.end_datetime >= NOW()');
+  }
+
+  if (location) {
+    where.push('(e.city LIKE ? OR e.state_region LIKE ? OR e.postcode LIKE ?)');
+    const like = `%${location}%`;
+    params.push(like, like, like);
+  }
+
+  if (category_id) {
+    where.push('e.category_id = ?');
+    params.push(Number(category_id));
+  }
+
+  const sql = `
+    SELECT 
+      e.id, e.name, e.short_description, e.city, e.state_region, e.postcode,
+      e.venue_name, e.start_datetime, e.end_datetime, e.image_url, e.goal_amount,
+      c.id AS category_id, c.name AS category_name,
+      o.id AS organisation_id, o.name AS organisation_name
+    FROM events e
+    JOIN categories c ON e.category_id = c.id
+    JOIN organisations o ON e.organisation_id = o.id
+    WHERE ${where.join(' AND ')}
+    ORDER BY e.start_datetime ASC, e.id ASC
+  `;
+
+  pool.query(sql, params, (err, rows) => {
+    if (err) {
+      return res.status(500).send({ error: 'query failed' });
+    }
+    res.send(rows);
   });
 });
 
