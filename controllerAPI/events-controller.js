@@ -48,6 +48,7 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
 
+  // event detail sql
   const sqlEvent = `
     SELECT 
       e.*, 
@@ -60,6 +61,7 @@ router.get('/:id', (req, res) => {
     LIMIT 1
   `;
 
+  // count register and qutity and total amount
   const sqlRegStats = `
     SELECT 
       COUNT(*) AS reg_count,
@@ -70,6 +72,7 @@ router.get('/:id', (req, res) => {
       AND r.status <> 'cancelled'
   `;
 
+  // query event first
   pool.query(sqlEvent, [id], (err, rows) => {
     if (err) {
       return res.status(500).send({ error: 'query failed' });
@@ -80,13 +83,15 @@ router.get('/:id', (req, res) => {
 
     const event = rows[0];
 
+    // then query stats
     pool.query(sqlRegStats, [id], (err2, statsRows) => {
       if (err2) {
         return res.status(500).send({ error: 'stats query failed' });
       }
       const stats = statsRows && statsRows[0] ? statsRows[0] : { reg_count: 0, total_qty: 0, total_amount: 0.0 };
 
-      res.send({
+      // return json
+      res.json({
         ...event,
         registration_stats: stats,
         progress: {
@@ -102,9 +107,12 @@ router.get('/:id', (req, res) => {
 router.post('/search', (req, res) => {
   const { date, location, category_id } = req.body;
 
+  // where array
   const where = ['e.is_suspended = 0'];
+  // add query value to params if it has value
   const params = [];
 
+  // date in beginning start and over end
   if (date) {
     where.push('(e.start_datetime <= ? AND e.end_datetime >= ?)');
     params.push(`${date} 23:59:59`, `${date} 00:00:00`);
