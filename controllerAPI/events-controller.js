@@ -108,8 +108,6 @@ router.post('/search', (req, res) => {
   if (date) {
     where.push('(e.start_datetime <= ? AND e.end_datetime >= ?)');
     params.push(`${date} 23:59:59`, `${date} 00:00:00`);
-  } else {
-    where.push('e.end_datetime >= NOW()');
   }
 
   if (location) {
@@ -135,6 +133,8 @@ router.post('/search', (req, res) => {
     WHERE ${where.join(' AND ')}
     ORDER BY e.start_datetime ASC, e.id ASC
   `;
+
+  console.log(sql);
 
   pool.query(sql, params, (err, rows) => {
     if (err) {

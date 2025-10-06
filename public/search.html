@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GlowGive </title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- custom css -->
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" href="#">GlowGive</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/search.html">Search</a></li>
+            </ul>
+        </div>
+    </div>
+</header>
+
+<!-- Search Panel -->
+<section class="bg-body-tertiary py-4 border-bottom">
+    <div class="container">
+        <h1 class="h3 mb-3">Find an event</h1>
+        <form id="searchForm" class="row gy-3 align-items-end">
+            <div class="col-12 col-md-3">
+                <label for="date" class="form-label">Date (optional)</label>
+                <input type="date" class="form-control" id="date" name="date" />
+            </div>
+            <div class="col-12 col-md-4">
+                <label for="location" class="form-label">Location (city / state / postcode)</label>
+                <input type="text" class="form-control" id="location" name="location" placeholder="Location" />
+            </div>
+            <div class="col-12 col-md-3">
+                <label for="category" class="form-label">Category</label>
+                <select id="category" name="category_id" class="form-select">
+                    <option value="">All categories</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Search</button>
+            </div>
+            <div class="col-12 d-flex gap-2 align-items-center">
+                <div class="form-text">Tip: leaving all fields empty searches active events.</div>
+                <button id="btnReset" type="button" class="btn btn-link btn-sm">Reset</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<main class="py-4">
+    <div class="container">
+        <!-- status -->
+        <div id="statusBar" class="alert alert-info d-none" role="alert"></div>
+
+        <!-- results grid -->
+        <div id="eventsGrid" class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3"></div>
+
+        <!-- empty -->
+        <div id="emptyState" class="text-center text-secondary d-none py-5">
+            <div class="display-6">No matches found</div>
+            <p class="mt-2">Try another date/location/category, or clear filters.</p>
+        </div>
+    </div>
+</main>
+
+<footer class="border-top py-4 mt-5 small text-center text-body-secondary">
+    <div class="container">© 2025 GlowGive</div>
+</footer>
+
+<!-- Card template (same style as Home) -->
+<template id="event-card">
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="ratio ratio-16x9 card-cover"></div>
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex align-items-start gap-2 mb-2 flex-wrap">
+                    <span class="badge rounded-pill text-bg-primary" data-field="category_name"></span>
+                    <span class="badge rounded-pill text-bg-dark" data-field="organisation_name"></span>
+                </div>
+                <h5 class="card-title mb-1" data-field="name"></h5>
+                <p class="card-text text-secondary small mb-2" data-field="short_description"></p>
+                <div class="d-flex align-items-center gap-2 small text-body-secondary mb-2">
+                    <i class="bi bi-geo-alt"></i>
+                    <span data-field="location"></span>
+                </div>
+                <div class="d-flex align-items-center gap-2 small text-body-secondary">
+                    <i class="bi bi-calendar-event"></i>
+                    <span data-field="date_range"></span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 d-flex justify-content-between">
+                <a class="btn btn-outline-primary btn-sm" data-field="detailsLink" href="#">Details</a>
+                <span class="small text-body-secondary" data-field="id"></span>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const $form = document.getElementById('searchForm');
+  const $date = document.getElementById('date');
+  const $loc = document.getElementById('location');
+  const $cat = document.getElementById('category');
+  const $grid = document.getElementById('eventsGrid');
+  const $empty = document.getElementById('emptyState');
+  const $status = document.getElementById('statusBar');
+  const $btnReset = document.getElementById('btnReset');
+
+  function setStatus(msg, type = 'info') {
+    if (!msg) {
+      $status.classList.add('d-none');
+      return;
+    }
+    $status.className = `alert alert-${type}`;
+    $status.textContent = msg;
+    $status.classList.remove('d-none');
+  }
+
+  function renderEvents(list) {
+    $grid.innerHTML = '';
+    $empty.classList.add('d-none');
+
+    const tpl = document.getElementById('event-card');
+    list.forEach(ev => {
+      const node = tpl.content.cloneNode(true);
+      // cover
+      const cover = node.querySelector('.card-cover');
+      const url = '/placeholder.png';
+      cover.style.backgroundImage = `url('${url}')`;
+      cover.style.backgroundSize = 'cover';
+      cover.style.backgroundPosition = 'center';
+
+      // text fields
+      node.querySelector('[data-field="category_name"]').textContent = ev.category_name;
+      node.querySelector('[data-field="organisation_name"]').textContent = ev.organisation_name;
+      node.querySelector('[data-field="name"]').textContent = ev.name;
+      node.querySelector('[data-field="short_description"]').textContent = ev.short_description || '';
+      node.querySelector('[data-field="location"]').textContent = [ev.city, ev.state_region, ev.postcode].filter(Boolean).join(' · ');
+      node.querySelector('[data-field="date_range"]').textContent = `${new Date(ev.start_datetime).toLocaleString()} — ${new Date(ev.end_datetime).toLocaleString()}`;
+
+      // Mark past events
+      const isPast = new Date(ev.end_datetime) < new Date();
+      if (isPast) {
+        const badgeWrap = node.querySelector('.d-flex.align-items-start');
+        const past = document.createElement('span');
+        past.className = 'badge rounded-pill text-bg-warning';
+        past.textContent = 'Past';
+        badgeWrap.appendChild(past);
+        node.querySelector('.card').classList.add('past-card');
+      }
+
+      // footer
+      const link = node.querySelector('[data-field="detailsLink"]');
+      link.href = `details.html?id=${ev.id}`; // Details link
+
+      $grid.appendChild(node);
+    });
+  }
+
+  async function renderCategories() {
+    try {
+      const res = await fetch(`http://localhost:3060/api/categories`);
+      const data = await res.json();
+      for (const c of data) {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        $cat.appendChild(opt);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function doSearch(payload) {
+    try {
+      setStatus('Searching…');
+      $grid.innerHTML = '';
+      $empty.classList.add('d-none');
+
+      const res = await fetch(`http://localhost:3060/api/events/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      renderEvents(data);
+      setStatus(null);
+    } catch (err) {
+      console.error(err);
+      setStatus('Search failed. Please check your API server.', 'danger');
+    }
+  }
+
+  // Submit handler
+  $form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const payload = {};
+    if ($date.value) {
+      payload.date = $date.value; // YYYY-MM-DD
+    }
+    if ($loc.value.trim()) {
+      payload.location = $loc.value.trim();
+    }
+    if ($cat.value) {
+      payload.category_id = Number($cat.value);
+    }
+
+    doSearch(payload);
+  });
+
+  // Reset filters to default
+  $btnReset.addEventListener('click', () => {
+    $date.value = '';
+    $loc.value = '';
+    $cat.value = '';
+    doSearch({});
+  });
+
+  // Init categories, initial search
+  renderCategories();
+  doSearch({});
+</script>
+</body>
+</html>

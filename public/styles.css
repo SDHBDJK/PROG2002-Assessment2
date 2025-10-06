@@ -22,3 +22,11 @@
     top: 70px;
     z-index: 1030;
 }
+
+.past-card {
+    opacity: 0.5;
+    background: rgba(255, 230, 161, 0.15);
+}
+.past-card .btn {
+    opacity: .95;
+}

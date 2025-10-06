@@ -42,14 +42,10 @@
     <!-- header and filter -->
     <div class="row align-items-center g-3 mb-2">
       <div class="col-12 col-lg-8">
-        <h1 class="h3 mb-1">Upcoming Community Events</h1>
+        <h1 class="h3 mb-1">Active Community Events</h1>
       </div>
       <div class="col-12 col-lg-4">
         <div class="d-flex align-items-center gap-2 justify-content-lg-end">
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="togglePast">
-            <label class="form-check-label" for="togglePast">Include past</label>
-          </div>
           <button id="btnRefresh" class="btn btn-primary">Refresh</button>
         </div>
       </div>
@@ -108,7 +104,6 @@
   const $grid = document.getElementById('eventsGrid');
   const $empty = document.getElementById('emptyState');
   const $status = document.getElementById('statusBar');
-  const $togglePast = document.getElementById('togglePast');
   const $btnRefresh = document.getElementById('btnRefresh');
 
   function setStatus(msg, type = 'info') {
@@ -123,10 +118,6 @@
 
   function renderEvents(list) {
     $grid.innerHTML = '';
-    if (!list || list.length === 0) {
-      $empty.classList.remove('d-none');
-      return;
-    }
     $empty.classList.add('d-none');
 
     const tpl = document.getElementById('event-card');
@@ -147,9 +138,20 @@
       node.querySelector('[data-field="location"]').textContent = [ev.city, ev.state_region, ev.postcode].filter(Boolean).join(' · ');
       node.querySelector('[data-field="date_range"]').textContent = `${new Date(ev.start_datetime).toLocaleString()} — ${new Date(ev.end_datetime).toLocaleString()}`;
 
+      // Mark past events
+      const isPast = new Date(ev.end_datetime) < new Date();
+      if (isPast) {
+        const badgeWrap = node.querySelector('.d-flex.align-items-start');
+        const past = document.createElement('span');
+        past.className = 'badge rounded-pill text-bg-warning';
+        past.textContent = 'Past';
+        badgeWrap.appendChild(past);
+        node.querySelector('.card').classList.add('past-card');
+      }
+
       // footer
       const link = node.querySelector('[data-field="detailsLink"]');
-      link.href = `details.html?id=${ev.id}`; // Details页占位
+      link.href = `details.html?id=${ev.id}`; // Details link
 
       $grid.appendChild(node);
     });
@@ -160,8 +162,8 @@
       setStatus('Loading events…');
       $grid.innerHTML = '';
       $empty.classList.add('d-none');
-      const includePast = $togglePast.checked ? '1' : '0';
-      const url = `http://localhost:3060/api/events?includePast=${includePast}`;
+      $status.classList.add('d-none');
+      const url = `http://localhost:3060/api/events`;
       const res = await fetch(url);
       const data = await res.json();
       renderEvents(data);
@@ -174,7 +176,6 @@
 
   // bind event
   $btnRefresh.addEventListener('click', loadEvents);
-  $togglePast.addEventListener('change', loadEvents);
 
   // first load
   loadEvents();
