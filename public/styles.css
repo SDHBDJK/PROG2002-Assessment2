@@ -1,0 +1,24 @@
+.card {
+    border: 0;
+    border-radius: 0.9rem
+}
+
+.card .ratio {
+    border-top-left-radius: 0.9rem;
+    border-top-right-radius: 0.9rem;
+    overflow: hidden;
+}
+
+.card .badge {
+    font-weight: 600;
+}
+
+.placeholder-glow .placeholder {
+    opacity: .35;
+}
+
+#statusBar {
+    position: sticky;
+    top: 70px;
+    z-index: 1030;
+}

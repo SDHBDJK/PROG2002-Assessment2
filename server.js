@@ -1,5 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const path = require('path');
 
 const eventsAPI = require('./controllerAPI/events-controller');
 const categoriesAPI = require('./controllerAPI/categories-controller');
@@ -9,6 +10,7 @@ const app = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/events', eventsAPI);
 app.use('/api/categories', categoriesAPI);
